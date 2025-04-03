@@ -12,7 +12,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: 47ng/actions-clever-cloud@v1.3.1
+      - uses: 47ng/actions-clever-cloud@v2.0.0
         name: Deploy to Clever Cloud
         with:
           appID: ${{ secrets.CLEVER_APP_ID }}
