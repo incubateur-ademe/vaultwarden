@@ -3,7 +3,7 @@
 ```sh
 # Ensure you are on the deploy branch and have upstream remote set
 git fetch upstream
-git pull --squash upstream <tag> # Replace <tag> with the desired version tag, e.g., v1.27.0. Branch can be used instead of tag but it is not recommended.
+git pull upstream <tag> # Replace <tag> with the desired version tag, e.g., v1.27.0. Branch can be used instead of tag but it is not recommended.
 # Update "post_build_hook.sh" with the latest version of web_vault if needed
 # Resolve any conflicts that arise, like deleted files on our side in .github/workflows
 git add --all
