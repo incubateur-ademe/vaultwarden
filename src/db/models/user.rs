@@ -173,8 +173,8 @@ impl User {
     /// * `password` - A str which contains a hashed version of the users master password.
     /// * `new_key` - A String  which contains the new aKey value of the users master password.
     /// * `allow_next_route` - A Option<Vec<String>> with the function names of the next allowed (rocket) routes.
-    ///                       These routes are able to use the previous stamp id for the next 2 minutes.
-    ///                       After these 2 minutes this stamp will expire.
+    ///   These routes are able to use the previous stamp id for the next 2 minutes.
+    ///   After these 2 minutes this stamp will expire.
     ///
     pub fn set_password(
         &mut self,
@@ -206,8 +206,8 @@ impl User {
     ///
     /// # Arguments
     /// * `route_exception` - A Vec<String> with the function names of the next allowed (rocket) routes.
-    ///                       These routes are able to use the previous stamp id for the next 2 minutes.
-    ///                       After these 2 minutes this stamp will expire.
+    ///   These routes are able to use the previous stamp id for the next 2 minutes.
+    ///   After these 2 minutes this stamp will expire.
     ///
     pub fn set_stamp_exception(&mut self, route_exception: Vec<String>) {
         let stamp_exception = UserStampException {
@@ -249,7 +249,6 @@ impl User {
             "emailVerified": !CONFIG.mail_enabled() || self.verified_at.is_some(),
             "premium": true,
             "premiumFromOrganization": false,
-            "masterPasswordHint": self.password_hint,
             "culture": "en-US",
             "twoFactorEnabled": twofactor_enabled,
             "key": self.akey,
@@ -334,7 +333,7 @@ impl User {
 
     pub async fn update_uuid_revision(uuid: &UserId, conn: &mut DbConn) {
         if let Err(e) = Self::_update_revision(uuid, &Utc::now().naive_utc(), conn).await {
-            warn!("Failed to update revision for {}: {:#?}", uuid, e);
+            warn!("Failed to update revision for {uuid}: {e:#?}");
         }
     }
 

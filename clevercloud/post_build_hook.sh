@@ -8,7 +8,8 @@ json=$(curl -s "https://api.github.com/repos/$repo/releases/latest")
 
 # Extract the tag name (release name) from the JSON response
 # release_name=$(echo "$json" | grep -Po '"tag_name": "\K.*?(?=")')
-release_name=$(echo "$json" | awk -F '"' '/tag_name/ {print $4}')
+# release_name=$(echo "$json" | awk -F '"' '/tag_name/ {print $4}')
+release_name="v2025.5.0"
 
 # Construct the asset download URL
 asset_url="https://github.com/$repo/releases/download/$release_name/bw_web_${release_name}.tar.gz"
