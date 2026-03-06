@@ -48,20 +48,20 @@ pub fn get_random_bytes<const N: usize>() -> [u8; N] {
 }
 
 /// Encode random bytes using the provided function.
-pub fn encode_random_bytes<const N: usize>(e: Encoding) -> String {
+pub fn encode_random_bytes<const N: usize>(e: &Encoding) -> String {
     e.encode(&get_random_bytes::<N>())
 }
 
 /// Generates a random string over a specified alphabet.
 pub fn get_random_string(alphabet: &[u8], num_chars: usize) -> String {
     // Ref: https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-    use rand::Rng;
+    use rand::RngExt;
     let mut rng = rand::rng();
 
     (0..num_chars)
         .map(|_| {
             let i = rng.random_range(0..alphabet.len());
-            alphabet[i] as char
+            char::from(alphabet[i])
         })
         .collect()
 }
@@ -81,7 +81,7 @@ pub fn get_random_string_alphanum(num_chars: usize) -> String {
 }
 
 pub fn generate_id<const N: usize>() -> String {
-    encode_random_bytes::<N>(HEXLOWER)
+    encode_random_bytes::<N>(&HEXLOWER)
 }
 
 pub fn generate_send_file_id() -> String {

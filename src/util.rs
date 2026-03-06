@@ -16,7 +16,7 @@ use tokio::{
     time::{sleep, Duration},
 };
 
-use crate::CONFIG;
+use crate::{config::PathType, CONFIG};
 
 pub struct AppHeaders();
 
@@ -61,9 +61,11 @@ impl Fairing for AppHeaders {
 
         // The `Cross-Origin-Resource-Policy` header should not be set on images or on the `icon_external` route.
         // Otherwise some clients, like the Bitwarden Desktop, will fail to download the icons
+        let mut is_image = true;
         if !(res.headers().get_one("Content-Type").is_some_and(|v| v.starts_with("image/"))
             || req.route().is_some_and(|v| v.name.as_deref() == Some("icon_external")))
         {
+            is_image = false;
             res.set_raw_header("Cross-Origin-Resource-Policy", "same-origin");
         }
 
@@ -71,49 +73,57 @@ impl Fairing for AppHeaders {
         // This can cause issues when some MFA requests needs to open a popup or page within the clients like WebAuthn, or Duo.
         // This is the same behavior as upstream Bitwarden.
         if !req_uri_path.ends_with("connector.html") {
-            // # Frame Ancestors:
-            // Chrome Web Store: https://chrome.google.com/webstore/detail/bitwarden-free-password-m/nngceckbapebfimnlniiiahkandclblb
-            // Edge Add-ons: https://microsoftedge.microsoft.com/addons/detail/bitwarden-free-password/jbkfoedolllekgbhcbcoahefnbanhhlh?hl=en-US
-            // Firefox Browser Add-ons: https://addons.mozilla.org/en-US/firefox/addon/bitwarden-password-manager/
-            // # img/child/frame src:
-            // Have I Been Pwned to allow those calls to work.
-            // # Connect src:
-            // Leaked Passwords check: api.pwnedpasswords.com
-            // 2FA/MFA Site check: api.2fa.directory
-            // # Mail Relay: https://bitwarden.com/blog/add-privacy-and-security-using-email-aliases-with-bitwarden/
-            // app.simplelogin.io, app.addy.io, api.fastmail.com, quack.duckduckgo.com
-            let csp = format!(
-                "default-src 'none'; \
-                font-src 'self'; \
-                manifest-src 'self'; \
-                base-uri 'self'; \
-                form-action 'self'; \
-                object-src 'self' blob:; \
-                script-src 'self' 'wasm-unsafe-eval'; \
-                style-src 'self' 'unsafe-inline'; \
-                child-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
-                frame-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
-                frame-ancestors 'self' \
-                  chrome-extension://nngceckbapebfimnlniiiahkandclblb \
-                  chrome-extension://jbkfoedolllekgbhcbcoahefnbanhhlh \
-                  moz-extension://* \
-                  {allowed_iframe_ancestors}; \
-                img-src 'self' data: \
-                  https://haveibeenpwned.com \
-                  {icon_service_csp}; \
-                connect-src 'self' \
-                  https://api.pwnedpasswords.com \
-                  https://api.2fa.directory \
-                  https://app.simplelogin.io/api/ \
-                  https://app.addy.io/api/ \
-                  https://api.fastmail.com/ \
-                  https://api.forwardemail.net \
-                  {allowed_connect_src};\
-                ",
-                icon_service_csp = CONFIG._icon_service_csp(),
-                allowed_iframe_ancestors = CONFIG.allowed_iframe_ancestors(),
-                allowed_connect_src = CONFIG.allowed_connect_src(),
-            );
+            let csp = if is_image {
+                // Prevent scripts, frames, objects, etc., from loading with images, mainly for SVG images, since these could contain JavaScript and other unsafe items.
+                // Even though we sanitize SVG images before storing and viewing them, it's better to prevent allowing these elements.
+                String::from("default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'none'; frame-src 'none'; object-src 'none")
+            } else {
+                // # Frame Ancestors:
+                // Chrome Web Store: https://chrome.google.com/webstore/detail/bitwarden-free-password-m/nngceckbapebfimnlniiiahkandclblb
+                // Edge Add-ons: https://microsoftedge.microsoft.com/addons/detail/bitwarden-free-password/jbkfoedolllekgbhcbcoahefnbanhhlh?hl=en-US
+                // Firefox Browser Add-ons: https://addons.mozilla.org/en-US/firefox/addon/bitwarden-password-manager/
+                // # img/child/frame src:
+                // Have I Been Pwned to allow those calls to work.
+                // # Connect src:
+                // Leaked Passwords check: api.pwnedpasswords.com
+                // 2FA/MFA Site check: api.2fa.directory
+                // # Mail Relay: https://bitwarden.com/blog/add-privacy-and-security-using-email-aliases-with-bitwarden/
+                // app.simplelogin.io, app.addy.io, api.fastmail.com, api.forwardemail.net
+                format!(
+                    "default-src 'none'; \
+                    font-src 'self'; \
+                    manifest-src 'self'; \
+                    base-uri 'self'; \
+                    form-action 'self'; \
+                    media-src 'self'; \
+                    object-src 'self' blob:; \
+                    script-src 'self' 'wasm-unsafe-eval'; \
+                    style-src 'self' 'unsafe-inline'; \
+                    child-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
+                    frame-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
+                    frame-ancestors 'self' \
+                    chrome-extension://nngceckbapebfimnlniiiahkandclblb \
+                    chrome-extension://jbkfoedolllekgbhcbcoahefnbanhhlh \
+                    moz-extension://* \
+                    {allowed_iframe_ancestors}; \
+                    img-src 'self' data: \
+                    https://haveibeenpwned.com \
+                    {icon_service_csp}; \
+                    connect-src 'self' \
+                    https://api.pwnedpasswords.com \
+                    https://api.2fa.directory \
+                    https://app.simplelogin.io/api/ \
+                    https://app.addy.io/api/ \
+                    https://api.fastmail.com/ \
+                    https://api.forwardemail.net \
+                    {allowed_connect_src};\
+                    ",
+                    icon_service_csp = CONFIG._icon_service_csp(),
+                    allowed_iframe_ancestors = CONFIG.allowed_iframe_ancestors(),
+                    allowed_connect_src = CONFIG.allowed_connect_src(),
+                )
+            };
+
             res.set_raw_header("Content-Security-Policy", csp);
             res.set_raw_header("X-Frame-Options", "SAMEORIGIN");
         } else {
@@ -142,9 +152,12 @@ impl Cors {
     // If a match exists, return it. Otherwise, return None.
     fn get_allowed_origin(headers: &HeaderMap<'_>) -> Option<String> {
         let origin = Cors::get_header(headers, "Origin");
-        let domain_origin = CONFIG.domain_origin();
         let safari_extension_origin = "file://";
-        if origin == domain_origin || origin == safari_extension_origin {
+
+        if origin == CONFIG.domain_origin()
+            || origin == safari_extension_origin
+            || (CONFIG.sso_enabled() && origin == CONFIG.sso_authority())
+        {
             Some(origin)
         } else {
             None
@@ -518,7 +531,7 @@ struct WebVaultVersion {
     version: String,
 }
 
-pub fn get_web_vault_version() -> String {
+pub fn get_active_web_release() -> String {
     let version_files = [
         format!("{}/vw-version.json", CONFIG.web_vault_folder()),
         format!("{}/version.json", CONFIG.web_vault_folder()),
@@ -825,6 +838,26 @@ pub use is_global_hardcoded as is_global;
 #[inline(always)]
 pub fn is_global(ip: std::net::IpAddr) -> bool {
     ip.is_global()
+}
+
+/// Saves a Rocket temporary file to the OpenDAL Operator at the given path.
+pub async fn save_temp_file(
+    path_type: &PathType,
+    path: &str,
+    temp_file: rocket::fs::TempFile<'_>,
+    overwrite: bool,
+) -> Result<(), crate::Error> {
+    use futures::AsyncWriteExt as _;
+    use tokio_util::compat::TokioAsyncReadCompatExt as _;
+
+    let operator = CONFIG.opendal_operator_for_path_type(path_type)?;
+
+    let mut read_stream = temp_file.open().await?.compat();
+    let mut writer = operator.writer_with(path).if_not_exists(!overwrite).await?.into_futures_async_write();
+    futures::io::copy(&mut read_stream, &mut writer).await?;
+    writer.close().await?;
+
+    Ok(())
 }
 
 /// These are some tests to check that the implementations match
